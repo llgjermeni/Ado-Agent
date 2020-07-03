@@ -1,0 +1,63 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus"
+    },
+    "existingSubnetName": {
+      "value": "ml-subnet"
+    },
+    "existingVnetName": {
+      "value": "devops-vnet-eastus"
+    },
+    "existingVnetRG": {
+      "value": "devops-vnet-eastus-rg"
+    },
+    "WorkspaceName": {
+      "value": "DefaultWorkspace-fd7d53ef-e290-4ab1-937e-fec061c00132-EUS"
+    },
+    "WorkspaceRG": {
+      "value": "defaultresourcegroup-eus"
+  },
+    "imagePublisher": {
+      "value": "microsoft-dsvm"
+    },
+    "imageOffer": {
+      "value": "linux-data-science-vm-ubuntu"
+    },
+    "imageSKU": {
+      "value": "linuxdsvmubuntu"
+    },
+    "virtualMachineSize": {
+      "value": "Standard_DS3_v2"
+    },
+    "prefix": {
+      "value": "vmss-name"
+  },
+    "adminUsername": {
+      "value": "vmss-user"
+    },
+    "adminPassword": {
+      "value": "Hollywood@2020"
+    },
+    "keyVaultName": {
+      "value": "aksvaulteus"
+    },
+    "keyVaultRG": {
+      "value": "usumaaks-rg"
+    },
+    "keyEncryptionKeyURL": {
+      "value": "https://aksvaulteus.vault.azure.net/keys/vmss-encryption/ee49d8f35c0149eeb6462ce37d387945"
+    },
+    "secretsPermissions": {
+      "value": ["list", "get"]
+    },
+    "existingDiagnosticsStorageAccountName": {
+      "value": "depdsvm"
+    },
+    "existingDiagnosticsStorageAccountRG": {
+      "value": "DefaultResourceGroup-EUS"
+  }
+  }
+}

@@ -1,0 +1,428 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "location": {
+            "type": "string"
+        },
+        "existingSubnetName": {
+            "type": "string"
+        },
+        "existingVnetName": {
+            "type": "string"
+        },
+        "existingVnetRG": {
+            "type": "string"
+        },
+        "WorkspaceName": {
+            "type": "string"
+        },
+        "WorkspaceRG": {
+            "type": "string"
+        },
+        "imagePublisher": {
+            "type": "string",
+            "metadata": {
+                "description": "Image Publisher"
+            }
+        },
+        "imageOffer": {
+            "type": "string",
+            "metadata": {
+                "description": "Image Offer"
+            }
+        },
+        "imageSKU": {
+            "type": "string",
+            "metadata": {
+                "description": "Image SKU"
+            }
+        },
+        "virtualMachineSize": {
+            "type": "string"
+        },
+        "virtualMachineCount": {
+            "type": "int",
+            "defaultValue": 3,
+            "minValue": 1,
+            "maxValue": 150,
+            "metadata": {
+                "description": "Number of  virtual machines to be created"
+            }
+        },
+        "prefix": {
+            "type": "string",
+            "metadata": {
+                "description": "Virtual Machine Scale Set Name where the VM will be placed"
+            }
+        },
+        "adminUsername": {
+            "type": "string"
+        },
+        "adminPassword": {
+            "type": "secureString"
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "Key Vault to be created. Web site will be granted access to this Key Vault."
+            }
+        },
+        "keyVaultRG": {
+            "type": "string"
+        },
+        "secretsPermissions": {
+            "type": "array",
+            "defaultValue": [
+                "list",
+                "get"
+            ],
+            "metadata": {
+                "description": "Specifies the permissions to secrets in the vault. Valid values are: all, get, list, set, delete, backup, restore, recover, and purge."
+            }
+        },
+        "keyEncryptionKeyURL": {
+            "type": "string",
+            "metadata": {
+                "description": "URL of the KeyEncryptionKey used to encrypt the volume encryption key"
+            }
+        },
+        "keyEncryptionAlgorithm": {
+            "type": "string",
+            "defaultValue": "RSA-OAEP",
+            "metadata": {
+                "description": "keyEncryptionAlgorithm used to wrap volume encryption key using KeyEncryptionKeyURL"
+            }
+        },
+        "volumeType": {
+            "type": "string",
+            "defaultValue": "All",
+            "metadata": {
+                "description": "Type of the volume OS or Data to perform encryption operation"
+            }
+        },
+        "forceUpdateTag": {
+            "type": "string",
+            "defaultValue": "[uniqueString(resourceGroup().id, deployment().name)]",
+            "metadata": {
+                "description": "Pass in an unique value like a GUID everytime the operation needs to be force run"
+            }
+        },
+        "resizeOSDisk": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "Should the OS partition be resized to occupy full OS VHD before splitting system volume"
+            }
+        },
+        "existingDiagnosticsStorageAccountName": {
+            "type": "string"
+        },
+        "existingDiagnosticsStorageAccountRG": {
+            "type": "string"
+        },
+        "_artifactsLocation": {
+            "type": "string",
+            "metadata": {
+                "description": "The base URI where artifacts required by this template are located."
+            },
+            "defaultValue": ""
+        },
+        // "_artifactsLocationSasToken": {
+        //     "type": "securestring",
+        //     "metadata": {
+        //         "description": "The sasToken required to access _artifactsLocation.  When the template is deployed using the accompanying scripts, a sasToken will be automatically generated."
+        //     },
+        //     "defaultValue": ""
+        // },
+        "commandToExecute": {
+            "type": "string",
+            "defaultValue": "sh extension.sh"
+        },
+        "AdoCommandToExecute": {
+            "type": "string",
+            "defaultValue": "sh ado-agent.sh"
+        }
+
+        // "VSTSAccountUrl": {
+        //     "type": "string",
+        //     "defaultValue": "https://llazari.visualstudio.com/"
+        // },
+        // "TeamProject": {
+        //     "type": "string",
+        //     "defaultValue": "DsvmADOAgent"
+        // },
+        // "DeploymentGroup": {
+        //     "type": "string",
+        //     "defaultValue": "ADOAgent"
+        // },
+        // "AgentName": {
+        //     "type": "string",
+        //     "defaultValue": ""
+        // },
+        // "PATToken": {
+        //     "type": "securestring",
+        //     "defaultValue": "jizb4xw7zdippg5extbulv3jchjpnfql2uh2sinohi6tugyq5yfa"
+        // },
+        // "Tags": {
+        //     "type": "object",
+        //     "defaultValue": {
+        //         "defaultExperience": "Core (SQL)",
+        //         "DeptName": "Rx Renewal",
+        //         "LOB": "RxR",
+        //         "Deployer": "manoj.x.sharma@walgreens.com",
+        //         "DeployDate": "9/15/2019",
+        //         "EnvType": "Non-Production",
+        //         "Sensitivity": "Non-Sensitive",
+        //         "SenType": "Not Applicable"
+        //     }
+        // }
+    },
+    "variables": {
+        "subnetRef": "[resourceId(parameters('existingVnetRG'), 'Microsoft.Network/virtualNetworks/subnets', parameters('existingVnetName'), parameters('existingSubnetName'))]",
+        "keyVaultResourceID": "[resourceId(parameters('keyVaultRG'), 'Microsoft.KeyVault/vaults/', parameters('keyVaultName'))]",
+        "scriptURL": "[uri(parameters('_artifactsLocation'), concat('scripts/extension.sh'))]",
+        "AdoScriptURL": "[uri(parameters('_artifactsLocation'), concat('scripts/ado-agent.sh'))]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets",
+            "name": "[parameters('prefix')]",
+            "apiVersion": "2019-03-01",
+            "location": "[parameters('location')]",
+            "tags": {
+                "LOB": "Pharmacy",
+                "EnvType": "Non-Production",
+                "SenType": "Not Applicable",
+                "Deployer": "maddineni gopi",
+                "DeployDate": "03-11-2020",
+                "DeptName": "Pharmacy Delivery",
+                "Sensitivity": "Non-Sensitive",
+                "CostCenter": "Pharmacy Delivery",
+                "SubDivision": "Pharmacy, Healthcare & Customer Engagement",
+                "LegalSubEntity": "Walgreen Co",
+                "Department": "Pharmacy Delivery"
+            },
+            "sku": {
+                "name": "[parameters('virtualMachineSize')]",
+                "tier": "Standard",
+                "capacity": "[parameters('virtualMachineCount')]"
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "overprovision": false,
+                "upgradePolicy": {
+                    "mode": "Manual"
+                },
+                "virtualMachineProfile": {
+                    "storageProfile": {
+                        "osDisk": {
+                            "createOption": "FromImage",
+                            "caching": "ReadWrite"
+                        },
+                        "imageReference": {
+                            "publisher": "[parameters('imagePublisher')]",
+                            "offer": "[parameters('imageOffer')]",
+                            "sku": "[parameters('imageSKU')]",
+                            "version": "latest"
+                        }
+                    },
+                    "osProfile": {
+                        "computerNamePrefix": "[concat(parameters('prefix'), 'vm-name')]",
+                        "adminUsername": "[parameters('adminUsername')]",
+                        "adminPassword": "[parameters('adminPassword')]"
+                    },
+                    "networkProfile": {
+                        "networkInterfaceConfigurations": [
+                            {
+                                "name": "[concat(parameters('prefix'), '-nic')]",
+                                "properties": {
+                                    "primary": true,
+                                    "ipConfigurations": [
+                                        {
+                                            "name": "[concat(parameters('prefix'), '-ipConfig')]",
+                                            "properties": {
+                                                "subnet": {
+                                                    "id": "[variables('subnetRef')]"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            }
+                        ]
+                    },
+                    "diagnosticsProfile": {
+                        "bootDiagnostics": {
+                            "enabled": true,
+                            "storageUri": "[concat(reference(resourceId(parameters('existingDiagnosticsStorageAccountRG'), 'Microsoft.Storage/storageAccounts/', parameters('existingDiagnosticsStorageAccountName')), '2016-01-01').primaryEndpoints.blob)]"
+                        }
+                    }
+                    //     "extensionProfile": {
+                    //         "extensions": [
+                    //             {
+                    //                 "name": "TeamServicesAgentLinux",
+                    //                 "properties": {
+                    //                     "publisher": "Microsoft.VisualStudio.Services",
+                    //                     "type": "TeamServicesAgentLinux",
+                    //                     "typeHandlerVersion": "1.0",
+                    //                     "autoUpgradeMinorVersion": true,
+                    //                     "settings": {
+                    //                         "VSTSAccountUrl": "[parameters('VSTSAccountUrl')]",
+                    //                         "TeamProject": "[parameters('TeamProject')]",
+                    //                         "DeploymentGroup": "[parameters('DeploymentGroup')]",
+                    //                         "AgentName": "[parameters('AgentName')]",
+                    //                         "Tags": "[parameters('Tags')]"
+                    //                     },
+                    //                     "protectedSettings": {
+                    //                         "PATToken": "[parameters('PATToken')]"
+                    //                     }
+                    //                 }
+                    //             }
+                    //         ]
+                    //     }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+            "name": "[concat(parameters('prefix'),'/ADOScriptExtension')]",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('prefix'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.OSTCExtensions",
+                "type": "CustomScriptForLinux",
+                "typeHandlerVersion": "1.3",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[variables('AdoScriptURL')]"
+                    ],
+                    "commandToExecute": "[parameters('AdoCommandToExecute')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+            "name": "[concat(parameters('prefix'),'/LinuxCustomScriptExtension')]",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/', parameters('prefix'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.OSTCExtensions",
+                "type": "CustomScriptForLinux",
+                "typeHandlerVersion": "1.3",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "[variables('scriptUrl')]"
+                    ],
+                    "commandToExecute": "[parameters('commandToExecute')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+            "name": "[concat(parameters('prefix'),'/AzureDiskEncryptionForLinux')]",
+            "location": "[parameters('location')]",
+            "apiVersion": "2017-12-01",
+            "properties": {
+                "publisher": "Microsoft.Azure.Security",
+                "type": "AzureDiskEncryptionForLinux",
+                "typeHandlerVersion": "1.1",
+                "autoUpgradeMinorVersion": true,
+                "forceUpdateTag": "[parameters('forceUpdateTag')]",
+                "settings": {
+                    "EncryptionOperation": "EnableEncryption",
+                    "KeyVaultURL": "[reference(variables('keyVaultResourceId'),'2018-02-14-preview').vaultUri]",
+                    "KeyVaultResourceId": "[variables('keyVaultResourceID')]",
+                    "KeyEncryptionKeyURL": "[parameters('keyEncryptionKeyURL')]",
+                    "KekVaultResourceId": "[variables('keyVaultResourceID')]",
+                    "KeyEncryptionAlgorithm": "[parameters('keyEncryptionAlgorithm')]",
+                    "VolumeType": "[parameters('volumeType')]",
+                    "ResizeOSDisk": "[parameters('resizeOSDisk')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+            "name": "[concat(parameters('prefix'), '/OMSExtension')]",
+            "apiVersion": "2018-06-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachineScaleSets/', parameters('prefix'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                "type": "OmsAgentForLinux",
+                "typeHandlerVersion": "1.7",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "workspaceId": "[reference(resourceId(parameters('WorkspaceRG'), 'Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2015-03-20').customerId]"
+                },
+                "protectedSettings": {
+                    "workspaceKey": "[listKeys(resourceId(parameters('WorkspaceRG'), 'Microsoft.OperationalInsights/workspaces/', parameters('workspaceName')), '2015-03-20').primarySharedKey]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachineScaleSets/extensions",
+            "name": "[concat(parameters('prefix'), '/ManagedIdentityExtensionForLinux')]",
+            "apiVersion": "2019-03-01",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachineScaleSets/', parameters('prefix'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.ManagedIdentity",
+                "type": "ManagedIdentityExtensionForLinux",
+                "typeHandlerVersion": "1.0",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                }
+            }
+        },
+        {
+            "apiVersion": "2019-05-01",
+            "name": "AccessPolicies",
+            "type": "Microsoft.Resources/deployments",
+            "resourceGroup": "[parameters('keyVaultRG')]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                    },
+                    "variables": {
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.KeyVault/vaults/accessPolicies",
+                            "name": "[concat(parameters('keyVaultName'), '/add')]",
+                            "apiVersion": "2018-02-14",
+                            "properties": {
+                                "accessPolicies": [
+                                    {
+                                        "tenantId": "[reference(concat('Microsoft.Compute/virtualMachineScaleSets/', parameters('prefix')), '2017-03-30', 'Full').identity.tenantId]",
+                                        "objectId": "[reference(concat('Microsoft.Compute/virtualMachineScaleSets/', parameters('prefix')), '2017-03-30', 'Full').identity.principalId]",
+                                        "permissions": {
+                                            "secrets": "[parameters('secretsPermissions')]"
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
